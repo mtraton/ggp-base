@@ -4,18 +4,10 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.URLEncoder;
-import java.util.Map;
 
 public final class HttpWriter
 {
-	private static void writeExtraHeaders(PrintWriter pw, Map<String, String> extraHeaders) {
-		if (extraHeaders == null) return;
-		for (Map.Entry<String, String> extraHeader : extraHeaders.entrySet()) {
-			pw.print(extraHeader.getKey() + ": " + extraHeader.getValue() + "\r\n");
-		}
-	}
-
-    public static void writeAsClientGET(Socket socket, String hostField, String data, String playerName, Map<String, String> extraHeaders) throws IOException
+    public static void writeAsClientGET(Socket socket, String hostField, String data, String playerName) throws IOException
     {
         PrintWriter pw = new PrintWriter(socket.getOutputStream());
 
@@ -24,14 +16,13 @@ public final class HttpWriter
         pw.print("Host: " + hostField + "\r\n");
         pw.print("Sender: GAMESERVER\r\n");
         pw.print("Receiver: "+playerName+"\r\n");
-        writeExtraHeaders(pw, extraHeaders);
         pw.print("\r\n");
         pw.print("\r\n");
 
         pw.flush();
     }
 
-	public static void writeAsClient(Socket socket, String hostField, String data, String playerName, Map<String, String> extraHeaders) throws IOException
+	public static void writeAsClient(Socket socket, String hostField, String data, String playerName) throws IOException
 	{
 		PrintWriter pw = new PrintWriter(socket.getOutputStream());
 
@@ -40,7 +31,6 @@ public final class HttpWriter
 		pw.print("Host: " + hostField + "\r\n");
 		pw.print("Sender: GAMESERVER\r\n");
 		pw.print("Receiver: "+playerName + "\r\n");
-        writeExtraHeaders(pw, extraHeaders);
 		pw.print("Content-Type: text/acl\r\n");
 		pw.print("Content-Length: " + data.length() + "\r\n");
 		pw.print("\r\n");
@@ -49,7 +39,7 @@ public final class HttpWriter
 		pw.flush();
 	}
 
-	public static void writeAsServer(Socket socket, String data, Map<String, String> extraHeaders) throws IOException
+	public static void writeAsServer(Socket socket, String data) throws IOException
 	{
 		PrintWriter pw = new PrintWriter(socket.getOutputStream());
 
@@ -60,14 +50,10 @@ public final class HttpWriter
 		pw.print("Access-Control-Allow-Methods: POST, GET, OPTIONS\r\n");
 		pw.print("Access-Control-Allow-Headers: Content-Type\r\n");
 		pw.print("Access-Control-Allow-Age: 86400\r\n");
-        writeExtraHeaders(pw, extraHeaders);
 		pw.print("\r\n");
 		pw.print(data);
 
 		pw.flush();
 	}
 
-	public static void writeAsServer(Socket socket, String data) throws IOException {
-		writeAsServer(socket, data, null);
-	}
 }

@@ -6,6 +6,11 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -33,6 +38,7 @@ import org.ggp.base.util.crypto.BaseCryptography.EncodedKeyPair;
 import org.ggp.base.util.game.Game;
 import org.ggp.base.util.game.GameRepository;
 import org.ggp.base.util.gdl.grammar.GdlPool;
+import org.ggp.base.util.http.HttpWriter;
 import org.ggp.base.util.presence.PlayerPresence;
 import org.ggp.base.util.presence.PlayerPresenceManager.InvalidHostportException;
 import org.ggp.base.util.statemachine.Role;
@@ -63,7 +69,13 @@ public final class Server extends JPanel implements ActionListener
 	    NativeUI.setNativeUI();
 	    GdlPool.caseSensitive = false;
 
+
 		final Server serverPanel = new Server();
+
+	    ListenerThread listen = serverPanel.new ListenerThread();
+		//listen.run();
+	    listen.start();
+
 		javax.swing.SwingUtilities.invokeLater(new Runnable()
 		{
 
@@ -104,6 +116,8 @@ public final class Server extends JPanel implements ActionListener
 	private final JList<String> playerSelectorList;
 
 	private final Scheduler scheduler;
+
+	//private final JSpinner portSpinner;
 
 	public Server()
 	{
@@ -160,6 +174,20 @@ public final class Server extends JPanel implements ActionListener
 		playersPanel.add(new JButton(addPlayerButtonMethod()), new GridBagConstraints(0, nRowCount, 1, 1, 1.0, 1.0, GridBagConstraints.EAST, GridBagConstraints.NONE, new Insets(5, 5, 5, 5), 0, 0));
 		playersPanel.add(new JButton(removePlayerButtonMethod()), new GridBagConstraints(1, nRowCount, 1, 1, 0.0, 1.0, GridBagConstraints.EAST, GridBagConstraints.NONE, new Insets(5, 5, 5, 5), 0, 0));
 		playersPanel.add(new JButton(testPlayerButtonMethod()), new GridBagConstraints(2, nRowCount++, 1, 1, 1.0, 1.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(5, 5, 5, 5), 0, 0));
+
+		//TODO
+		//portSpinner = new JSpinner(new SpinnerNumberModel(9000, 9000, 9999, 1));
+		/*
+		new SpinnerNumberModel(	9000,	// initial value
+				                9000,	// min
+				                50000,	// max
+				                1);		// step
+		*/
+
+		//playersPanel.add(new JLabelBold("Listener"), new GridBagConstraints(0, nRowCount, 3, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(5, 25, 5, 5), 0, 0));
+		//playersPanel.add(portSpinner, new GridBagConstraints(1, nRowCount, 3, 1, 0.0, 0.0, GridBagConstraints.WEST, GridBagConstraints.NONE, new Insets(5, 5, 5, 5), 0, 0));
+
+
 
 		nRowCount = 0;
 		managerPanel.add(gamePanel, new GridBagConstraints(0, nRowCount++, 1, 1, 1.0, 0.0, GridBagConstraints.NORTHWEST, GridBagConstraints.HORIZONTAL, new Insets(5, 5, 5, 5), 5, 5));
@@ -267,7 +295,7 @@ public final class Server extends JPanel implements ActionListener
 					Game testGame = GameRepository.getDefaultRepository().getGame("maze");
 					String playerName = playerSelectorList.getSelectedValue().toString();
 					List<PlayerPresence> thePlayers = Arrays.asList(new PlayerPresence[]{playerSelector.getPlayerPresence(playerName)});
-					scheduler.addPendingMatch(new PendingMatch("Test", testGame, thePlayers, -1, 10, 5, shouldScramble.isSelected(), false, shouldDetail.isSelected(), false, false));
+					scheduler.addPendingMatch(new PendingMatch("Test", testGame, thePlayers, -1, 10, 5, false, false, true, false, false));
 				}
 			}
 		};
@@ -297,4 +325,147 @@ public final class Server extends JPanel implements ActionListener
 			}
 		};
 	}
+
+
+
+
+	private ServerSocket listener;
+
+
+	class ListenerThread extends Thread {
+		//public ListenerThread(String str) {
+		//	super(str);
+		//}
+
+		@Override
+		public void run() {
+
+			try {
+				listener = new ServerSocket(9002);
+			} catch (IOException e1) {
+				listener = null;
+				System.out.println("Fail at listener!");
+				e1.printStackTrace();
+			}
+			System.out.println("String: " + this.getName() + " is running...");
+
+			while (listener != null) {
+
+
+				try {
+					System.out.println("before accept()");
+					Socket connection = listener.accept();
+					System.out.println("accepted!");
+
+					//String in2 = HttpReader.readAsServer(connection);
+					//System.out.println(in2);
+
+
+					BufferedReader br = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+
+					// The first line of the HTTP request is the request line.
+					String line;
+					StringBuilder theContent = new StringBuilder();
+					theContent.append(connection.getInetAddress().toString().replace("/",""));
+					theContent.append(":");
+					String boundary = null;
+
+					int contentLength=-1;
+					int thisContent = 0;
+					boolean endOfLine = false;
+					boolean startMSG = false;
+
+
+					while (!endOfLine) {
+						line = br.readLine();
+
+			            if(line==null)
+			            	// Should not be able to get here - readLine() in requests blocks!
+			            	break;
+			            else if (line.equals(""))
+			            	System.out.println("<blanc line>");
+			            else if(line.equals("\n"))
+			            	System.out.println("<newline>");
+			            else if(line.equals("\r\n"))
+			            	System.out.println("<WINnewline>");
+
+			            //MAIN PARSING REQUEST:
+			            /*
+			            else if(line.toLowerCase().startsWith("host:")) {
+
+			            	//theContent.append(line.toLowerCase().replace("host:", "").trim());
+				            //theContent.append(":");
+				            System.out.println("host-line:|" + line + "|");
+			            }
+			            */
+
+			            else if(line.toLowerCase().contains("boundary=")) {
+			            	System.out.println("boundary-line: " + line);
+			            	String[] parts = line.toLowerCase().split("boundary=");
+			            	System.out.println(parts[0]);
+			            	System.out.println(parts[1]);
+			            	//line.toLowerCase().replace("content-type: multipart/mixed; boundary=", "").trim();
+			            	boundary = parts[1];
+			            }
+
+			            else if(line.toLowerCase().startsWith("content-length:")) {
+			            	contentLength = Integer.parseInt(line.toLowerCase().replace("content-length:", "").trim());
+			            	System.out.println("|CONTENT_LENGTH: "+contentLength+"|");
+			            }
+
+			            else if(boundary!=null && line.toLowerCase().contains(boundary)) {
+			            	// line with nothing...
+			            }
+
+			            else {
+			            	if(startMSG) {
+			            		theContent.append(line);
+					            theContent.append(" ");
+			            	}
+
+				            System.out.println("||"+line+"||");
+			            }
+
+
+						if(contentLength>=0) {
+							startMSG = true;
+							thisContent +=line.length();
+							System.out.println("|THIS_CONTENT: "+thisContent+"("+line.length()+")|");
+							System.out.println(line);
+							if(thisContent>=contentLength) {
+								break;
+							}
+						}
+
+			        }
+
+
+
+					//String in = theContent.toString().trim();
+					String in = theContent.toString();
+
+					playerSelector.addPlayer(in.trim());
+
+
+					if (in.length() == 0) {
+					    throw new IOException("Empty message received.");
+					}
+
+					System.out.println("ITS ALIVE!!!:\n"+in);
+
+					String data = "Sample response.";
+					HttpWriter.writeAsServer(connection, data);
+
+					} catch (Exception e) {
+						System.out.println("EXCEPTION.");
+						e.printStackTrace();
+					}
+				}
+
+
+
+		}
+	}
+
+
 }
